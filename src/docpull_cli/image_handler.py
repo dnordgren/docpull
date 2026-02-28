@@ -4,7 +4,10 @@ import hashlib
 from pathlib import Path
 from typing import Dict, Tuple
 
+import requests
 from googleapiclient.errors import HttpError
+
+_MAX_IMAGE_BYTES = 20 * 1024 * 1024  # 20 MB
 
 class ImageHandler:
     """Handles image extraction and file management."""
@@ -74,6 +77,14 @@ class ImageHandler:
 
         return (relative_path, False)
 
+    def _fetch_image(self, url: str) -> bytes:
+        """Download image from URL with safety checks."""
+        response = requests.get(url, timeout=30, verify=True)
+        response.raise_for_status()
+        if len(response.content) > _MAX_IMAGE_BYTES:
+            raise ValueError(f"Image exceeds size limit ({len(response.content)} bytes)")
+        return response.content
+
     def download_and_save_image(self, drive_client, inline_object: Dict) -> Tuple[str, bool]:
         """Download inline image from document and save.
 
@@ -107,15 +118,9 @@ class ImageHandler:
                 file_id = match.group(1)
                 image_data = drive_client.download_image(file_id)
             else:
-                # Try to download directly
-                import requests
-                response = requests.get(content_uri)
-                image_data = response.content
+                image_data = self._fetch_image(content_uri)
         else:
-            # Download from URL
-            import requests
-            response = requests.get(content_uri)
-            image_data = response.content
+            image_data = self._fetch_image(content_uri)
 
         # Determine MIME type
         mime_type = image_props.get('sourceUri', '').split('.')[-1]

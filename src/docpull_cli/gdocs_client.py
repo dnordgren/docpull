@@ -108,7 +108,8 @@ class GoogleDocsClient:
             Document ID if found, None otherwise
         """
         try:
-            query = f"name='{filename}' and mimeType='application/vnd.google-apps.document'"
+            escaped = filename.replace("\\", "\\\\").replace("'", "\\'")
+            query = f"name='{escaped}' and mimeType='application/vnd.google-apps.document'"
             results = drive_service.files().list(
                 q=query,
                 pageSize=10,
