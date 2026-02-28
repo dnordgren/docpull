@@ -1,7 +1,7 @@
 """OAuth authentication for Google APIs with multi-account support."""
 
+import json
 import os
-import pickle
 from pathlib import Path
 from typing import Optional
 
@@ -47,8 +47,7 @@ class AuthManager:
         """
         # Load existing credentials
         if self.credentials_path.exists():
-            with open(self.credentials_path, 'rb') as token:
-                self.credentials = pickle.load(token)
+            self.credentials = self._load_credentials()
 
         # Refresh or create new credentials
         if not self.credentials or not self.credentials.valid:
@@ -63,10 +62,28 @@ class AuthManager:
                 self.credentials = self._run_oauth_flow()
 
             # Save credentials
-            with open(self.credentials_path, 'wb') as token:
-                pickle.dump(self.credentials, token)
+            self._save_credentials()
 
         return self.credentials
+
+    def _load_credentials(self) -> Optional[Credentials]:
+        """Load credentials from disk, handling legacy pickle files."""
+        try:
+            data = json.loads(self.credentials_path.read_text())
+            return Credentials.from_authorized_user_info(data, SCOPES)
+        except (json.JSONDecodeError, ValueError):
+            # Legacy pickle file — load once, then re-save as JSON on next write.
+            import pickle  # noqa: PLC0415
+            try:
+                with open(self.credentials_path, 'rb') as f:
+                    return pickle.load(f)
+            except Exception:
+                return None
+
+    def _save_credentials(self) -> None:
+        """Save credentials to disk as JSON with restrictive permissions."""
+        self.credentials_path.write_text(self.credentials.to_json())
+        os.chmod(self.credentials_path, 0o600)
 
     def _run_oauth_flow(self) -> Credentials:
         """Run OAuth flow to get new credentials."""
