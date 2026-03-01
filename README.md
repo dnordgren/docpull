@@ -149,6 +149,19 @@ Comments from the Google Doc are converted to footnotes at the end of the docume
 
 Use `--account work` to sync documents from your work account.
 
+## Development
+
+Clone the repo and install in editable mode:
+
+```bash
+git clone https://github.com/derek/docpull.git
+cd docpull
+uv sync
+```
+
+`uv sync` installs the project in editable mode, so changes to `src/` take
+effect immediately when you run `uv run docpull`.
+
 ## License
 
 MIT

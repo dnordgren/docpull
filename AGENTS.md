@@ -30,4 +30,5 @@ bd sync               # Sync with git
 6. **Hand off** - Provide context for next session
 
 **CRITICAL RULES:**
-- Work is NOT complete until work is committed, beads synced and validation passing
+
+* Work is NOT complete until work is committed, beads synced and validation passing
