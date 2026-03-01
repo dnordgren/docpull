@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+
+# macOS
+.DS_Store
+
+# Project-specific
+tmp/
