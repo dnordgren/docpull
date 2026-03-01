@@ -83,6 +83,9 @@ docpull "https://..." --output doc.md --force
 
 # Skip image downloads
 docpull "https://..." --output doc.md --no-images
+
+# Get agent-optimized usage guide (for AI agents)
+docpull --help-agent
 ```
 
 ### Multi-tab documents

@@ -117,6 +117,109 @@ def write_markdown_file(output_path: str, frontmatter: str, content: str) -> Non
     # Atomic rename
     Path(tmp_path).replace(output_path_obj)
 
+AGENT_HELP = """
+DOCPULL AGENT GUIDE
+===================
+
+docpull syncs a Google Doc to one or more local Markdown files in a single
+command. It is a one-way pull; edits to the local file are not pushed back.
+
+SYNOPSIS
+--------
+  docpull <doc> --output <path> [options]
+
+ARGUMENTS
+---------
+  doc              Google Doc URL  OR  document title (searched in Drive).
+                   Prefer URLs — title search matches the first result.
+  --output PATH    Required. Output Markdown file path.
+  --account NAME   Google account from config (defaults to default_account).
+  --force          Overwrite existing files without prompting.
+  --no-images      Skip downloading inline images (faster, no local files).
+  --config PATH    Path to config file (default: ~/.config/docpull.json).
+
+EXAMPLES
+--------
+  # Sync by URL
+  docpull "https://docs.google.com/document/d/DOC_ID/edit" \\
+      --output ~/notes/my-doc.md
+
+  # Search by title
+  docpull "Q1 Planning" --output ~/notes/q1.md
+
+  # Work account, no images
+  docpull "https://..." --output doc.md --account work --no-images
+
+  # Overwrite silently
+  docpull "https://..." --output doc.md --force
+
+MULTI-TAB DOCUMENTS
+-------------------
+  When a doc has more than one tab, docpull creates one file per tab.
+  The output path becomes a template; the tab name is appended to the stem:
+
+    --output report.md  →  report-Overview.md, report-Details.md, ...
+
+  Each file gets a "tab" field added to its YAML frontmatter.
+
+OUTPUT FORMAT
+-------------
+  Every file starts with YAML frontmatter followed by Markdown:
+
+    ---
+    title: Document Title
+    gdoc_id: ABC123DEF456
+    gdoc_url: https://docs.google.com/document/d/ABC123DEF456/edit
+    account: personal
+    last_synced: 2024-01-15T10:30:00Z
+    created: 2024-01-01T09:00:00Z
+    last_edited: 2024-01-15T10:00:00Z
+    author: Jane Smith
+    ---
+
+    # Document Title
+    ...
+
+  Inline Google Doc comments are converted to numbered footnotes appended at
+  the end of the file.
+
+SETUP (one-time, requires human)
+---------------------------------
+  1. Google Cloud credentials at ~/.config/docpull/client_secrets.json
+     (OAuth Desktop app credentials from Google Cloud Console).
+  2. On first run, a browser window opens for OAuth — a human must complete
+     this step. Tokens are cached at ~/.config/docpull/credentials-ACCOUNT.json.
+  3. Config at ~/.config/docpull.json (created automatically on first run):
+
+       {
+         "default_account": "personal",
+         "accounts": {
+           "personal": {
+             "email": "me@gmail.com",
+             "image_dir": "~/Documents/docpull-images/personal"
+           },
+           "work": {
+             "email": "me@company.com",
+             "image_dir": "~/Documents/docpull-images/work"
+           }
+         }
+       }
+
+TROUBLESHOOTING
+---------------
+  "No document found matching …"
+      Use the full URL instead of a title, or verify the exact title in Drive.
+
+  Authentication errors / "invalid_grant"
+      Delete ~/.config/docpull/credentials-ACCOUNT.json to force re-auth,
+      then run docpull again (a human must complete the browser flow).
+
+  Permission denied on a URL
+      The authenticated account may not have access to that document.
+      Check --account or grant access in Google Drive.
+"""
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -124,11 +227,11 @@ def main():
     )
     parser.add_argument(
         'doc',
+        nargs='?',
         help='Google Doc filename or URL'
     )
     parser.add_argument(
         '--output',
-        required=True,
         help='Output Markdown file path'
     )
     parser.add_argument(
@@ -149,8 +252,22 @@ def main():
         action='store_true',
         help='Skip downloading inline images'
     )
+    parser.add_argument(
+        '--help-agent',
+        action='store_true',
+        help='Print a comprehensive guide for AI agents and exit'
+    )
 
     args = parser.parse_args()
+
+    if args.help_agent:
+        print(AGENT_HELP)
+        sys.exit(0)
+
+    if not args.doc:
+        parser.error('the following arguments are required: doc')
+    if not args.output:
+        parser.error('the following arguments are required: --output')
 
     try:
         # Load config
