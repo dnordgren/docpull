@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bd *)",
+
+      "Bash(uv run *)",
+      "Bash(uv sync)",
+      "Bash(uv add *)",
+
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add *)",
+      "Bash(git commit*)"
+    ]
+  }
+}

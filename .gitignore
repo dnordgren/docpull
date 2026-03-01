@@ -10,3 +10,4 @@ __pycache__/
 
 # Project-specific
 tmp/
+.claude/settings.local.json
