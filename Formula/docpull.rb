@@ -7,7 +7,9 @@ class Docpull < Formula
   sha256 "71288267471d7cac5e3df52ead366cd44a278cd2d72eac750c9f50859a8030a4"
   license "MIT"
 
+  depends_on "openssl@3"
   depends_on "python@3.12"
+  depends_on "rust" => :build
 
   resource "certifi" do
     url "https://files.pythonhosted.org/packages/af/2d/7bf41579a8986e348fa033a31cdd0e4121114f6bce2457e8876010b092dd/certifi-2026.2.25.tar.gz"
