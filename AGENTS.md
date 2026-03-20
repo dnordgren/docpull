@@ -12,6 +12,23 @@ bd close <id>         # Complete work
 bd sync               # Sync with git
 ```
 
+## Development Setup
+
+This project uses [uv](https://docs.astral.sh/uv/) for Python and dependency management.
+
+```bash
+# One-time setup (creates .venv with Python 3.12 + all deps)
+uv sync --dev
+
+# Run tests
+uv run pytest
+
+# Run the CLI from source
+uv run docpull <url> --output <path>
+```
+
+The project pins Python 3.12 via `.python-version`. All dependencies (including dev deps like pytest) are managed in `pyproject.toml` and locked in `uv.lock`.
+
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
