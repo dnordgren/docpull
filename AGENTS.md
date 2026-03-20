@@ -29,6 +29,8 @@ uv run docpull <url> --output <path>
 
 The project pins Python 3.12 via `.python-version`. All dependencies (including dev deps like pytest) are managed in `pyproject.toml` and locked in `uv.lock`.
 
+> **Note:** The Homebrew install (`/opt/homebrew/Cellar/docpull/`) is a frozen snapshot of a release build. It does **not** reflect source changes. Always use `uv run docpull` when testing local changes — never edit Homebrew files directly.
+
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
