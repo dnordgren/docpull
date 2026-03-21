@@ -355,6 +355,9 @@ class MarkdownConverter:
             return s.strip() == ''
 
         text = text.replace('\u00a0', ' ')
+        text = text.replace('\u2018', "'").replace('\u2019', "'")
+        text = text.replace('\u2013', '-').replace('\u2014', '--')
+        text = text.replace('\u201c', '"').replace('\u201d', '"')
 
         lines = text.split('\n')
         out = []
