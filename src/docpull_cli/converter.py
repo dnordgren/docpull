@@ -354,6 +354,8 @@ class MarkdownConverter:
         def is_blank(s):
             return s.strip() == ''
 
+        text = text.replace('\u00a0', ' ')
+
         lines = text.split('\n')
         out = []
 
