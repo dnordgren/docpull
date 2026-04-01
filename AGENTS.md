@@ -31,6 +31,25 @@ The project pins Python 3.12 via `.python-version`. All dependencies (including 
 
 > **Note:** The Homebrew install (`/opt/homebrew/Cellar/docpull/`) is a frozen snapshot of a release build. It does **not** reflect source changes. Always use `uv run docpull` when testing local changes — never edit Homebrew files directly.
 
+## Releasing a New Version
+
+1. **Bump version** in `pyproject.toml`
+2. **Merge to main**, then tag and push:
+   ```bash
+   git tag -a vX.Y.Z -m "vX.Y.Z"
+   git push origin vX.Y.Z
+   ```
+3. **Get the tarball sha256** (wait a few seconds after pushing the tag):
+   ```bash
+   curl -sL https://github.com/dnordgren/docpull/archive/refs/tags/vX.Y.Z.tar.gz | shasum -a 256
+   ```
+4. **Update `Formula/docpull.rb`** — change `url` and `sha256` to the new values, commit and push to main
+5. **Pull the tap** so Homebrew sees the new version:
+   ```bash
+   git -C $(brew --repository)/Library/Taps/dnordgren/homebrew-docpull pull
+   ```
+   > Note: `brew update` does not always pull third-party taps automatically. This manual pull is required before `brew upgrade docpull` will detect the new version.
+
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.

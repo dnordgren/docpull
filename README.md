@@ -16,7 +16,7 @@ One-way sync from Google Docs to Markdown.
 ### Homebrew (recommended)
 
 ```bash
-brew install dnordgren/tap/docpull
+brew install dnordgren/docpull/docpull
 ```
 
 ### From source (development)
