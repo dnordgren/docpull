@@ -13,25 +13,19 @@ One-way sync from Google Docs to Markdown.
 
 ## Installation
 
-### With uv (recommended)
+### Homebrew (recommended)
 
 ```bash
-# Clone the repo
-git clone https://github.com/derek/docpull.git
-cd docpull
-
-# Install with uv
-uv sync
-
-# Run
-uv run docpull --help
+brew install dnordgren/tap/docpull
 ```
 
-### With pip
+### From source (development)
 
 ```bash
-pip install .
-docpull --help
+git clone https://github.com/dnordgren/docpull.git
+cd docpull
+uv sync --dev
+uv run docpull --help
 ```
 
 ## Setup
@@ -151,16 +145,14 @@ Use `--account work` to sync documents from your work account.
 
 ## Development
 
-Clone the repo and install in editable mode:
-
 ```bash
-git clone https://github.com/derek/docpull.git
+git clone https://github.com/dnordgren/docpull.git
 cd docpull
-uv sync
+uv sync --dev
 ```
 
-`uv sync` installs the project in editable mode, so changes to `src/` take
-effect immediately when you run `uv run docpull`.
+`uv sync --dev` installs the project in editable mode with dev dependencies (pytest).
+Changes to `src/` take effect immediately via `uv run docpull`. Run tests with `uv run pytest`.
 
 ## License
 

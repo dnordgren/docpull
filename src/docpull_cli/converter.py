@@ -30,6 +30,7 @@ class MarkdownConverter:
         self.comment_map = self._build_comment_map()
         self.footnote_counter = 1
         self.footnotes: List[str] = []
+        self._emitted_comment_ids: set = set()
 
         # Track inline objects (images) - use provided or fall back to document-level
         self.inline_objects = inline_objects if inline_objects is not None else document.get('inlineObjects', {})
@@ -102,15 +103,22 @@ class MarkdownConverter:
         Returns:
             Tuple of (text_with_footnote, has_footnote)
         """
-        # Look for matching comments
+        # Look for matching comments, skipping any already emitted
         matching_comments = []
 
         for quote, comments in self.comment_map.items():
             if quote in text:
-                matching_comments.extend(comments)
+                for comment in comments:
+                    comment_id = comment.get('id')
+                    if comment_id not in self._emitted_comment_ids:
+                        matching_comments.append(comment)
 
         if not matching_comments:
             return (text, False)
+
+        # Mark these comments as emitted
+        for comment in matching_comments:
+            self._emitted_comment_ids.add(comment.get('id'))
 
         # Add footnote reference
         footnote_ref = f"[^{self.footnote_counter}]"
@@ -345,6 +353,11 @@ class MarkdownConverter:
 
         def is_blank(s):
             return s.strip() == ''
+
+        text = text.replace('\u00a0', ' ')
+        text = text.replace('\u2018', "'").replace('\u2019', "'")
+        text = text.replace('\u2013', '-').replace('\u2014', '--')
+        text = text.replace('\u201c', '"').replace('\u201d', '"')
 
         lines = text.split('\n')
         out = []
