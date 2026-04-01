@@ -3,8 +3,8 @@ class Docpull < Formula
 
   desc "One-way sync from Google Docs to Markdown"
   homepage "https://github.com/dnordgren/docpull"
-  url "https://github.com/dnordgren/docpull/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "71288267471d7cac5e3df52ead366cd44a278cd2d72eac750c9f50859a8030a4"
+  url "https://github.com/dnordgren/docpull/archive/refs/tags/v0.1.1.tar.gz"
+  sha256 "c680cd1ac255ec40b0116c604a3fb2c062bf7d9cd9b371049563a87586a8dabb"
   license "MIT"
 
   depends_on "openssl@3"
