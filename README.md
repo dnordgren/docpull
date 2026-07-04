@@ -19,6 +19,20 @@ One-way sync from Google Docs to Markdown.
 brew install dnordgren/docpull/docpull
 ```
 
+### Ubuntu 24.04+
+
+Build a Debian package from a checkout on Ubuntu 24.04 or later:
+
+```bash
+sudo apt update
+sudo apt install python3.12 python3.12-venv python3-pip dpkg-dev ca-certificates
+./packaging/ubuntu/build-deb.sh
+sudo apt install ./dist/ubuntu/docpull_*.deb
+```
+
+The package installs docpull into `/opt/docpull` with its own Python virtual
+environment and exposes the `docpull` command at `/usr/bin/docpull`.
+
 ### From source (development)
 
 ```bash
