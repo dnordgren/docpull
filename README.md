@@ -177,6 +177,18 @@ uv sync --dev
 `uv sync --dev` installs the project in editable mode with dev dependencies (pytest).
 Changes to `src/` take effect immediately via `uv run docpull`. Run tests with `uv run pytest`.
 
+### Release workflow
+
+To manually run the GitHub Actions release workflow for an existing tag:
+
+```bash
+gh workflow run Release --ref v0.1.2
+gh run list --workflow="release.yml"
+gh run watch
+```
+
+Release assets are published when a `v*` tag is pushed.
+
 ## License
 
 MIT
