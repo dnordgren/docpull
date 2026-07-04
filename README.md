@@ -21,7 +21,16 @@ brew install dnordgren/docpull/docpull
 
 ### Ubuntu 24.04+
 
-Build a Debian package from a checkout on Ubuntu 24.04 or later:
+Install the latest release artifact:
+
+```bash
+sudo apt update
+sudo apt install curl ca-certificates
+curl -L -o /tmp/docpull.deb https://github.com/dnordgren/docpull/releases/latest/download/docpull_amd64.deb
+sudo apt install /tmp/docpull.deb
+```
+
+Or build a Debian package from a checkout on Ubuntu 24.04 or later:
 
 ```bash
 sudo apt update
