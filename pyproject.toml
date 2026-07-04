@@ -1,6 +1,6 @@
 [project]
 name = "docpull"
-version = "0.1.1"
+version = "0.1.2"
 description = "One-way sync from Google Docs to Markdown"
 readme = "README.md"
 license = {text = "MIT"}
