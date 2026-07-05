@@ -90,7 +90,16 @@ def check_existing_files(output_paths: List[str], force: bool) -> bool:
     for path in existing:
         print(f"  - {path}")
 
-    response = input("\nOverwrite? [y/N]: ").strip().lower()
+    if not sys.stdin.isatty():
+        print("\nOutput file exists — pass --force to overwrite.", file=sys.stderr)
+        return False
+
+    try:
+        response = input("\nOverwrite? [y/N]: ").strip().lower()
+    except EOFError:
+        print("\nOutput file exists — pass --force to overwrite.", file=sys.stderr)
+        return False
+
     return response in ('y', 'yes')
 
 def write_markdown_file(output_path: str, frontmatter: str, content: str) -> None:
@@ -204,6 +213,26 @@ SETUP (one-time, requires human)
            }
          }
        }
+
+HEADLESS CREDENTIAL SEEDING
+---------------------------
+  Agents can avoid the interactive browser flow by provisioning base64-encoded
+  credential files in environment variables before docpull starts:
+
+    DOCPULL_CLIENT_SECRETS_B64
+        Writes ~/.config/docpull/client_secrets.json if the file is missing.
+
+    DOCPULL_CREDENTIALS_<ACCOUNT>_B64
+        Writes ~/.config/docpull/credentials-ACCOUNT.json if the file is
+        missing. <ACCOUNT> is the configured account name uppercased, for
+        example DOCPULL_CREDENTIALS_PERSONAL_B64.
+
+  Encode the JSON file as a single-line base64 value with no wrapping:
+
+    base64 -i credentials-personal.json | tr -d '\\n'
+
+  Seeded files are written with mode 600. Existing files are never overwritten
+  by environment variables.
 
 TROUBLESHOOTING
 ---------------

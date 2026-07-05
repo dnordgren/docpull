@@ -70,15 +70,20 @@ class AuthManager:
         """Load credentials from disk, handling legacy pickle files."""
         try:
             data = json.loads(self.credentials_path.read_text())
+            os.chmod(self.credentials_path, 0o600)
             return Credentials.from_authorized_user_info(data, SCOPES)
         except (json.JSONDecodeError, ValueError):
-            # Legacy pickle file — load once, then re-save as JSON on next write.
+            # Legacy pickle file — normalize to JSON immediately after loading.
             import pickle  # noqa: PLC0415
             try:
                 with open(self.credentials_path, 'rb') as f:
-                    return pickle.load(f)
+                    credentials = pickle.load(f)
             except Exception:
                 return None
+
+            self.credentials = credentials
+            self._save_credentials()
+            return credentials
 
     def _save_credentials(self) -> None:
         """Save credentials to disk as JSON with restrictive permissions."""
@@ -98,6 +103,8 @@ class AuthManager:
                 "5. Download the client secrets JSON\n"
                 f"6. Save it to {self.client_secrets_path}"
             )
+
+        os.chmod(self.client_secrets_path, 0o600)
 
         flow = InstalledAppFlow.from_client_secrets_file(
             str(self.client_secrets_path),
