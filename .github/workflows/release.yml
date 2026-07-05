@@ -82,3 +82,85 @@ jobs:
         with:
           name: ubuntu-deb
           path: dist/ubuntu/*.deb
+
+  homebrew-formula:
+    name: Update Homebrew formula
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Read project version
+        id: version
+        run: |
+          version="$(python - <<'PY'
+          import tomllib
+
+          with open("pyproject.toml", "rb") as fh:
+              print(tomllib.load(fh)["project"]["version"])
+          PY
+          )"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Validate release tag
+        run: |
+          expected="v${{ steps.version.outputs.version }}"
+          actual="${GITHUB_REF_NAME}"
+          if [ "$actual" != "$expected" ]; then
+            echo "Tag $actual does not match pyproject.toml version $expected" >&2
+            exit 1
+          fi
+
+      - name: Compute release tarball SHA
+        id: tarball
+        run: |
+          set -euo pipefail
+          url="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${GITHUB_REF_NAME}.tar.gz"
+          sha256="$(curl -fsSL "$url" | sha256sum | awk '{print $1}')"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Update formula
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          formula = Path("Formula/docpull.rb")
+          text = formula.read_text()
+          text = re.sub(
+              r'url "https://github\.com/[^"]+/archive/refs/tags/v[^"]+\.tar\.gz"',
+              f'url "{os.environ["TARBALL_URL"]}"',
+              text,
+              count=1,
+          )
+          text = re.sub(
+              r'sha256 "[0-9a-f]{64}"',
+              f'sha256 "{os.environ["TARBALL_SHA256"]}"',
+              text,
+              count=1,
+          )
+          formula.write_text(text)
+          PY
+        env:
+          TARBALL_URL: ${{ steps.tarball.outputs.url }}
+          TARBALL_SHA256: ${{ steps.tarball.outputs.sha256 }}
+
+      - name: Commit formula update
+        run: |
+          if git diff --quiet -- Formula/docpull.rb; then
+            echo "Formula already up to date."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/docpull.rb
+          git commit -m "chore: update formula for ${GITHUB_REF_NAME}"
+          git push origin main
