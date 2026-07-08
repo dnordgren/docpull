@@ -218,6 +218,18 @@ class MarkdownConverter:
                 if name:
                     text_parts.append(name)
 
+            elif 'dateElement' in element:
+                # Date smart chip — preserve the text displayed in Google Docs
+                date_element = element['dateElement']
+                display_text = date_element.get('dateElementProperties', {}).get('displayText', '')
+                if display_text:
+                    text_parts.append(
+                        self._apply_text_style(
+                            display_text,
+                            date_element.get('textStyle', {}),
+                        )
+                    )
+
             elif 'inlineObjectElement' in element:
                 # Handle inline image
                 inline_obj_id = element['inlineObjectElement'].get('inlineObjectId')
