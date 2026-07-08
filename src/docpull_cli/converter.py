@@ -181,6 +181,84 @@ class MarkdownConverter:
 
         return text
 
+    def _convert_paragraph_element(self, element: Dict) -> str:
+        """Convert one Google Docs paragraph element to Markdown."""
+        if 'textRun' in element:
+            text_run = element['textRun']
+            text = text_run.get('content', '')
+
+            # Strip trailing newlines before styling so markers do not wrap them.
+            trailing_newlines = text[len(text.rstrip('\n')):]
+            text = text.rstrip('\n')
+            return self._apply_text_style(
+                text,
+                text_run.get('textStyle', {}),
+            ) + trailing_newlines
+
+        if 'person' in element:
+            person = element['person']
+            properties = person.get('personProperties', {})
+            display_text = properties.get('name') or properties.get('email', '')
+            return self._apply_text_style(
+                display_text,
+                person.get('textStyle', {}),
+            )
+
+        if 'richLink' in element:
+            rich_link = element['richLink']
+            properties = rich_link.get('richLinkProperties', {})
+            title = properties.get('title', '')
+            uri = properties.get('uri', '')
+            if not title:
+                return uri
+
+            # The rich-link URI is rendered explicitly below; avoid applying a
+            # duplicate link if Google also includes one in textStyle.
+            text_style = {
+                key: value
+                for key, value in rich_link.get('textStyle', {}).items()
+                if key != 'link'
+            }
+            title = self._apply_text_style(title, text_style)
+            return f"[{title}]({uri})" if uri else title
+
+        if 'dateElement' in element:
+            date_element = element['dateElement']
+            display_text = date_element.get(
+                'dateElementProperties',
+                {},
+            ).get('displayText', '')
+            return self._apply_text_style(
+                display_text,
+                date_element.get('textStyle', {}),
+            )
+
+        if 'horizontalRule' in element:
+            return '---'
+
+        if 'inlineObjectElement' in element:
+            inline_obj_id = element['inlineObjectElement'].get('inlineObjectId')
+            if not inline_obj_id or inline_obj_id not in self.inline_objects:
+                return ''
+
+            try:
+                image_path, _ = self.image_handler.download_and_save_image(
+                    self.drive_client,
+                    self.inline_objects[inline_obj_id],
+                )
+                # Use ~ for home directory
+                if image_path.startswith(str(self.image_handler.image_dir.parent.parent)):
+                    image_path = image_path.replace(
+                        str(self.image_handler.image_dir.parent.parent),
+                        '~',
+                    )
+                return f"![image]({image_path})"
+            except Exception as e:
+                print(f"Warning: Failed to process image {inline_obj_id}: {e}")
+                return f"[Image: {inline_obj_id}]"
+
+        return ''
+
     def _convert_paragraph(self, paragraph: Dict) -> str:
         """Convert paragraph element to Markdown.
 
@@ -197,60 +275,10 @@ class MarkdownConverter:
         named_style = para_style.get('namedStyleType', 'NORMAL_TEXT')
 
         # Build text content
-        text_parts = []
-        for element in elements:
-            if 'textRun' in element:
-                text_run = element['textRun']
-                text = text_run.get('content', '')
-                text_style = text_run.get('textStyle', {})
-
-                # Strip trailing newline before styling so markers don't wrap it
-                trailing_newline = text.endswith('\n')
-                text = text.rstrip('\n')
-                styled_text = self._apply_text_style(text, text_style)
-                if trailing_newline:
-                    styled_text += '\n'
-                text_parts.append(styled_text)
-
-            elif 'person' in element:
-                # @-mention chip — render as the person's name
-                name = element['person'].get('personProperties', {}).get('name', '')
-                if name:
-                    text_parts.append(name)
-
-            elif 'dateElement' in element:
-                # Date smart chip — preserve the text displayed in Google Docs
-                date_element = element['dateElement']
-                display_text = date_element.get('dateElementProperties', {}).get('displayText', '')
-                if display_text:
-                    text_parts.append(
-                        self._apply_text_style(
-                            display_text,
-                            date_element.get('textStyle', {}),
-                        )
-                    )
-
-            elif 'inlineObjectElement' in element:
-                # Handle inline image
-                inline_obj_id = element['inlineObjectElement'].get('inlineObjectId')
-                if inline_obj_id and inline_obj_id in self.inline_objects:
-                    try:
-                        image_path, _ = self.image_handler.download_and_save_image(
-                            self.drive_client,
-                            self.inline_objects[inline_obj_id]
-                        )
-                        # Use ~ for home directory
-                        if image_path.startswith(str(self.image_handler.image_dir.parent.parent)):
-                            image_path = image_path.replace(
-                                str(self.image_handler.image_dir.parent.parent),
-                                '~'
-                            )
-                        text_parts.append(f"![image]({image_path})")
-                    except Exception as e:
-                        print(f"Warning: Failed to process image {inline_obj_id}: {e}")
-                        text_parts.append(f"[Image: {inline_obj_id}]")
-
-        full_text = ''.join(text_parts).rstrip()
+        full_text = ''.join(
+            self._convert_paragraph_element(element)
+            for element in elements
+        ).rstrip()
 
         # Check for comments on this text
         full_text, _ = self._add_footnote_for_text(full_text)
@@ -330,11 +358,11 @@ class MarkdownConverter:
                 cell_text = ''
                 for element in cell_content:
                     if 'paragraph' in element:
-                        # Simplified: just get text without full paragraph conversion
                         para_elements = element['paragraph'].get('elements', element['paragraph'].get('paragraphElements', []))
-                        for para_elem in para_elements:
-                            if 'textRun' in para_elem:
-                                cell_text += para_elem['textRun'].get('content', '')
+                        cell_text += ''.join(
+                            self._convert_paragraph_element(para_elem)
+                            for para_elem in para_elements
+                        )
 
                 cell_texts.append(cell_text.strip())
 
