@@ -121,7 +121,7 @@ Each Markdown file includes YAML frontmatter with metadata:
 
 ```yaml
 ---
-title: Document Title
+document_title: Document Title
 gdoc_id: ABC123...
 gdoc_url: https://docs.google.com/document/d/ABC123/edit
 account: personal

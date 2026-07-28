@@ -176,7 +176,7 @@ OUTPUT FORMAT
   Every file starts with YAML frontmatter followed by Markdown:
 
     ---
-    title: Document Title
+    document_title: Document Title
     gdoc_id: ABC123DEF456
     gdoc_url: https://docs.google.com/document/d/ABC123DEF456/edit
     account: personal

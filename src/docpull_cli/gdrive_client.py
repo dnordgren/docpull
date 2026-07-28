@@ -98,7 +98,7 @@ class GoogleDriveClient:
             Dict suitable for frontmatter
         """
         frontmatter = {
-            'title': metadata.get('name', 'Untitled'),
+            'document_title': metadata.get('name', 'Untitled'),
             'gdoc_id': doc_id,
             'gdoc_url': metadata.get('webViewLink', f'https://docs.google.com/document/d/{doc_id}/edit'),
             'account': account_name,
