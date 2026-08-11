@@ -101,9 +101,28 @@ docpull "https://..." --output doc.md --force
 # Skip image downloads
 docpull "https://..." --output doc.md --no-images
 
+# Re-pull a prior docpull Markdown file in place (reads frontmatter)
+docpull --repull ~/Documents/my-doc.md
+docpull -r ~/Documents/my-doc.md --no-images
+
 # Get agent-optimized usage guide (for AI agents)
 docpull --help-agent
 ```
+
+### Re-pull
+
+`--repull` / `-r` refreshes a Markdown file that docpull wrote earlier. It reads
+`gdoc_id` (or `gdoc_url`), `account`, and optional `tab` from the YAML
+frontmatter, fetches the live Google Doc, and overwrites the same file
+without prompting.
+
+```bash
+docpull -r ./notes/spec.md
+docpull -r ./notes/spec.md --account work   # override stored account
+```
+
+For multi-tab documents, re-pull refreshes only the tab named in that file's
+frontmatter. Sibling tab files are left unchanged.
 
 ### Multi-tab documents
 

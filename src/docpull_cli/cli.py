@@ -5,12 +5,16 @@ import argparse
 import sys
 import tempfile
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from .auth import AuthManager
 from .config import Config
 from .converter import MarkdownConverter
-from .frontmatter import generate_frontmatter
+from .frontmatter import (
+    generate_frontmatter,
+    load_frontmatter_from_file,
+    resolve_repull_target,
+)
 from .gdocs_client import GoogleDocsClient
 from .gdrive_client import GoogleDriveClient
 from .image_handler import ImageHandler
@@ -67,6 +71,33 @@ def generate_output_filenames(base_output: str, tabs: List[Tuple[str, str, List,
         result.append((output_path, tab_name, content, inline_objects))
 
     return result
+
+def select_tabs_for_repull(
+    tabs: List[Tuple[str, str, List, dict]],
+    tab_name: Optional[str],
+) -> List[Tuple[str, str, List, dict]]:
+    """Select which tabs to write during a re-pull.
+
+    Args:
+        tabs: All tabs from the document
+        tab_name: Tab name from prior frontmatter, if any
+
+    Returns:
+        Filtered list of tabs to write
+
+    Raises:
+        ValueError: If a named tab is not found
+    """
+    if tab_name is None:
+        return tabs
+
+    matching = [t for t in tabs if t[1] == tab_name]
+    if not matching:
+        available = ', '.join(repr(t[1]) for t in tabs) or '(none)'
+        raise ValueError(
+            f"Tab {tab_name!r} not found in document. Available tabs: {available}"
+        )
+    return matching
 
 def check_existing_files(output_paths: List[str], force: bool) -> bool:
     """Check if output files exist and prompt if needed.
@@ -136,14 +167,20 @@ command. It is a one-way pull; edits to the local file are not pushed back.
 SYNOPSIS
 --------
   docpull <doc> --output <path> [options]
+  docpull --repull <markdown-file> [options]
+  docpull -r <markdown-file> [options]
 
 ARGUMENTS
 ---------
   doc              Google Doc URL  OR  document title (searched in Drive).
                    Prefer URLs — title search matches the first result.
-  --output PATH    Required. Output Markdown file path.
-  --account NAME   Google account from config (defaults to default_account).
-  --force          Overwrite existing files without prompting.
+  --output PATH    Required for a new pull. Output Markdown file path.
+  --repull, -r     Re-pull a prior docpull Markdown file in place. Reads
+                   gdoc_id (or gdoc_url), account, and optional tab from
+                   YAML frontmatter. Overwrites the same file without prompt.
+  --account NAME   Google account from config (defaults to default_account,
+                   or the account stored in frontmatter when using --repull).
+  --force          Overwrite existing files without prompting (new pulls).
   --no-images      Skip downloading inline images (faster, no local files).
   --config PATH    Path to config file (default: ~/.config/docpull.json).
 
@@ -162,6 +199,10 @@ EXAMPLES
   # Overwrite silently
   docpull "https://..." --output doc.md --force
 
+  # Re-pull a prior output in place
+  docpull --repull ~/notes/my-doc.md
+  docpull -r ~/notes/my-doc.md --no-images
+
 MULTI-TAB DOCUMENTS
 -------------------
   When a doc has more than one tab, docpull creates one file per tab.
@@ -170,6 +211,9 @@ MULTI-TAB DOCUMENTS
     --output report.md  →  report-Overview.md, report-Details.md, ...
 
   Each file gets a "tab" field added to its YAML frontmatter.
+
+  Re-pull of a multi-tab file refreshes only that file's tab (matched by
+  the frontmatter "tab" field). Sibling tab files are left unchanged.
 
 OUTPUT FORMAT
 -------------
@@ -246,6 +290,9 @@ TROUBLESHOOTING
   Permission denied on a URL
       The authenticated account may not have access to that document.
       Check --account or grant access in Google Drive.
+
+  "No YAML frontmatter found" / missing gdoc_id
+      --repull only works on files previously written by docpull.
 """
 
 
@@ -257,15 +304,20 @@ def main():
     parser.add_argument(
         'doc',
         nargs='?',
-        help='Google Doc filename or URL'
+        help='Google Doc filename or URL (not used with --repull)'
     )
     parser.add_argument(
         '--output',
-        help='Output Markdown file path'
+        help='Output Markdown file path (required for new pulls)'
+    )
+    parser.add_argument(
+        '-r', '--repull',
+        metavar='FILE',
+        help='Re-pull a prior docpull Markdown file in place using its frontmatter'
     )
     parser.add_argument(
         '--account',
-        help='Account name (defaults to config default)'
+        help='Account name (defaults to config default, or frontmatter account for --repull)'
     )
     parser.add_argument(
         '--force',
@@ -293,15 +345,33 @@ def main():
         print(AGENT_HELP)
         sys.exit(0)
 
-    if not args.doc:
-        parser.error('the following arguments are required: doc')
-    if not args.output:
-        parser.error('the following arguments are required: --output')
+    if args.repull:
+        if args.doc:
+            parser.error('do not pass a document argument with --repull; the file supplies the source')
+        if args.output:
+            parser.error('do not pass --output with --repull; the file is overwritten in place')
+    else:
+        if not args.doc:
+            parser.error('the following arguments are required: doc')
+        if not args.output:
+            parser.error('the following arguments are required: --output')
 
     try:
+        repull_tab: Optional[str] = None
+        repull_path: Optional[str] = None
+
+        if args.repull:
+            repull_path = args.repull
+            print(f"Reading prior output: {repull_path}")
+            metadata = load_frontmatter_from_file(repull_path)
+            doc_id, fm_account, repull_tab = resolve_repull_target(metadata)
+            account_arg = args.account or fm_account
+        else:
+            account_arg = args.account
+
         # Load config
         config = Config(args.config)
-        account = config.get_account(args.account)
+        account = config.get_account(account_arg)
         account_name = account['name']
 
         print(f"Authenticating with Google (account: {account_name})...")
@@ -321,37 +391,54 @@ def main():
         docs_client = GoogleDocsClient(docs_service)
         drive_client = GoogleDriveClient(drive_service)
 
-        # Get document ID
-        print(f"Fetching document \"{args.doc}\"...")
-
-        # Try to parse as URL first, then search by name
-        if 'docs.google.com' in args.doc:
-            doc_id = docs_client.get_document_id(args.doc)
+        if args.repull:
+            print(f"Re-pulling document {doc_id}...")
         else:
-            doc_id = docs_client.search_documents_by_name(drive_service, args.doc)
-            if not doc_id:
-                print(f"Error: No document found matching '{args.doc}'.")
-                print("Check the name or re-run with the full document URL instead.")
-                sys.exit(1)
+            # Get document ID
+            print(f"Fetching document \"{args.doc}\"...")
+
+            # Try to parse as URL first, then search by name
+            if 'docs.google.com' in args.doc:
+                doc_id = docs_client.get_document_id(args.doc)
+            else:
+                doc_id = docs_client.search_documents_by_name(drive_service, args.doc)
+                if not doc_id:
+                    print(f"Error: No document found matching '{args.doc}'.")
+                    print("Check the name or re-run with the full document URL instead.")
+                    sys.exit(1)
 
         # Fetch document
         document = docs_client.get_document(doc_id)
 
-        # Get tabs
-        tabs = docs_client.get_tabs(document)
+        # Get tabs (full list before any re-pull filter)
+        all_tabs = docs_client.get_tabs(document)
+        is_multi_tab = len(all_tabs) > 1
 
         # Fetch metadata and comments
         metadata = drive_client.get_file_metadata(doc_id)
         comments = drive_client.get_comments(doc_id)
 
-        print(f"✓ Found document ({len(tabs)} tab(s), {len(comments)} comment(s))\n")
+        print(f"✓ Found document ({len(all_tabs)} tab(s), {len(comments)} comment(s))\n")
 
-        # Generate output filenames
-        output_files = generate_output_filenames(args.output, tabs)
+        if args.repull:
+            selected_tabs = select_tabs_for_repull(all_tabs, repull_tab)
+            # Multi-tab doc without a tab field: refresh this file from the first tab only
+            if repull_tab is None and len(selected_tabs) > 1:
+                selected_tabs = selected_tabs[:1]
+            # Always write back to the same path
+            output_files = [
+                (repull_path, tab_name, content, inline_objects)
+                for _, tab_name, content, inline_objects in selected_tabs
+            ]
+            force = True  # re-pull overwrites in place
+        else:
+            output_files = generate_output_filenames(args.output, all_tabs)
+            force = args.force
+
         output_paths = [path for path, _, _, _ in output_files]
 
         # Check existing files
-        if not check_existing_files(output_paths, args.force):
+        if not check_existing_files(output_paths, force):
             print("Cancelled")
             sys.exit(0)
 
@@ -366,7 +453,7 @@ def main():
         for output_path, tab_name, content, inline_objects in output_files:
             # Generate frontmatter
             fm_data = drive_client.parse_metadata_for_frontmatter(metadata, account_name, doc_id)
-            if len(tabs) > 1:
+            if is_multi_tab:
                 fm_data['tab'] = tab_name
             frontmatter = generate_frontmatter(fm_data)
 
@@ -389,7 +476,7 @@ def main():
             print(f"✓ Downloaded {total_images} image(s)" + (f" ({deduplicated} deduplicated)" if deduplicated > 0 else ""))
 
         print("\n" + "=" * 40)
-        print("Sync complete!")
+        print("Sync complete!" if not args.repull else "Re-pull complete!")
         print(f"  Files created: {len(files_created)}")
         if total_images > 0:
             print(f"  Images extracted: {total_images}")
