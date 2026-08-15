@@ -1,6 +1,6 @@
 """Google Drive API client wrapper."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from googleapiclient.errors import HttpError
@@ -102,7 +102,7 @@ class GoogleDriveClient:
             'gdoc_id': doc_id,
             'gdoc_url': metadata.get('webViewLink', f'https://docs.google.com/document/d/{doc_id}/edit'),
             'account': account_name,
-            'last_synced': datetime.utcnow().isoformat() + 'Z'
+            'last_synced': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
         }
 
         # Created time
